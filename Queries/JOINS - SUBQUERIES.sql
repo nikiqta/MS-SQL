@@ -127,3 +127,23 @@ INNER JOIN Towns
 
 
 -- Common Table Expressions
+
+   WITH CTE_EmployeeInfo (FirstName, LastName, salary) 
+	 AS
+        (
+ SELECT FirstName, LastName, salary 
+   FROM Employees
+        )
+  
+ SELECT * 
+   FROM CTE_EmployeeInfo
+
+-- Indices 
+
+ CREATE 
+ NONCLUSTERED INDEX IX_People_FirstName
+                 ON People(FirstName, LastName)
+ 
+ SELECT * FROM People
+ WHERE FirstName = 'Rebecca'
+ AND LastName = 'Van'

@@ -19,7 +19,7 @@ USE SoftUni
   SELECT TOP (50) 
              e.FirstName, 
 			 e.LastName ,
-			 t.[Name],
+			 t.[Name] AS Town,
 			 a.AddressText
 	    FROM Employees 
 		  AS e
@@ -52,7 +52,7 @@ USE SoftUni
             e.EmployeeID, 
 			e.FirstName, 
 			Salary, 
-			d.[Name] 
+			d.[Name] AS DepartmentName 
 	   FROM Employees 
 	     AS e
        JOIN Departments 
@@ -113,7 +113,8 @@ SELECT TOP (5)
       JOIN Projects 
 	    AS p 
 		ON p.ProjectID = ep.ProjectID
-     WHERE p.EndDate 
+	 WHERE p.StartDate > '2002-08-13'
+       AND p.EndDate 
    IS NULL
   ORDER BY e.EmployeeID 
        ASC
@@ -148,6 +149,7 @@ SELECT TOP (5)
 		  e.FirstName, 
 		  e.ManagerID, 
 		  e2.FirstName 
+	   AS ManagerName 
      FROM Employees 
 	   AS e
      JOIN Employees 
@@ -257,5 +259,122 @@ SELECT TOP 1 * FROM Countries
           ORDER BY c.CountryName 
 		       ASC
 
--- 16.	Continents and Currencies *
+-- 15.	Continents and Currencies *
 
+      SELECT             
+	         ContinentCode, 
+			 CurrencyCode, 
+			 CurrencyUsage 
+	    FROM (
+			  SELECT
+					 ContinentCode, 
+					 CurrencyCode, 
+					 CurrencyUsage,
+		  DENSE_RANK () 
+				OVER (
+		PARTITION BY ContinentCode 
+			ORDER BY CurrencyUsage
+				DESC
+					 ) 
+				  AS [Rank]
+				FROM (
+					  SELECT
+							 ContinentCode, 
+							 CurrencyCode, 
+					   COUNT (CurrencyCode) 
+						  AS CurrencyUsage  
+						FROM Countries
+					GROUP BY CurrencyCode, ContinentCode) 
+						  AS e
+					  ) 
+				  AS RankCurrencies
+	   WHERE [Rank] = 1 AND CurrencyUsage > 1
+	ORDER BY ContinentCode
+
+-- 16.	Countries without any Mountains
+
+  SELECT 
+   COUNT (CountryCode) CountryCode 
+    FROM Countries
+   WHERE CountryCode 
+  NOT IN (
+  SELECT 
+         CountryCode 
+	FROM MountainsCountries
+	     )
+
+------------------------------------------------------------------
+
+			SELECT  
+				  COUNT(c.CountryCode) 
+                AS CountryCode
+			  FROM Countries 
+				AS c
+			  JOIN Continents 
+			    AS cc 
+				ON cc.ContinentCode = c.ContinentCode
+   FULL OUTER JOIN MountainsCountries
+				AS mc 
+				ON mc.CountryCode = c.CountryCode
+   LEFT OUTER JOIN Mountains 
+                AS m 
+				ON m.Id = mc.MountainId
+				WHERE m.MountainRange IS NULL
+
+-- 17.	Highest Peak and Longest River by Country
+
+
+		 SELECT 
+			TOP (5) 
+				c.CountryName, 
+			MAX (p.Elevation) HighestPeakElevation, 
+			MAX (r.Length) LongestRiverElevation 
+		   FROM Countries c
+LEFT OUTER JOIN CountriesRivers cr ON cr.CountryCode = c.CountryCode
+LEFT OUTER JOIN Rivers r ON r.Id = cr.RiverId
+LEFT OUTER JOIN MountainsCountries mc ON mc.CountryCode = c.CountryCode
+LEFT OUTER JOIN Peaks p ON p.MountainId = mc.MountainId
+       GROUP BY c.CountryName
+       ORDER BY HighestPeakElevation DESC, LongestRiverElevation DESC
+
+-- 18.	Highest Peak Name and Elevation by Country*
+
+          SELECT 
+		         CountryName Country,
+		    CASE
+				WHEN PeakName IS NULL 
+				THEN '(no highest peak)'
+				ELSE PeakName
+             END [Highest Peak Name],
+
+			CASE  
+				WHEN HighestPeakElevation IS NULL 
+				THEN '0'
+				ELSE HighestPeakElevation
+             END [Highest Peak Elevation], 
+
+			CASE
+				WHEN MountainRange IS NULL 
+				THEN '(no mountain)'
+				ELSE MountainRange
+				 END Mountain 
+		    FROM (
+                 SELECT  
+						c.CountryName,
+						p.PeakName,
+						p.Elevation HighestPeakElevation,
+						m.MountainRange,
+			 DENSE_RANK () 
+				   OVER (
+		   PARTITION BY c.CountryName 
+			   ORDER BY p.Elevation
+				   DESC
+						) [Rank]
+				   FROM Countries c
+		LEFT OUTER JOIN MountainsCountries mc ON mc.CountryCode = c.CountryCode
+		LEFT OUTER JOIN Mountains m ON m.Id = mc.MountainId
+		LEFT OUTER JOIN Peaks p ON p.MountainId = mc.MountainId
+                        ) t
+           WHERE [Rank] = 1
+		   ORDER BY Country,
+		            [Highest Peak Name]
