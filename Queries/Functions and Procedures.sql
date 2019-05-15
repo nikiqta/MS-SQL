@@ -106,21 +106,76 @@ GO
 
 GO
 
--- Stored Procedures without parameters
+-- Stored Procedures without parameters and  with parameters
 
-CREATE PROCEDURE usp_GetEmployeesBySeniority
+CREATE OR ALTER PROCEDURE usp_GetEmployeesBySeniority @HireYears INT
 AS
 BEGIN
     SELECT * FROM Employees
-	WHERE DATEDIFF(YEAR, HireDate, GETDATE()) > 5
+	WHERE DATEDIFF(YEAR, HireDate, GETDATE()) > @HireYears
 END
 
 GO
 
-EXEC dbo.usp_GetEmployeesBySeniority
+EXEC dbo.usp_GetEmployeesBySeniority 2
 
 EXEC sp_depends usp_GetEmployeesBySeniority
 
--- Stored Procedures with parameters
+-- exercise Employees with three projects
 
+GO
+
+CREATE OR ALTER PROCEDURE usp_AddEmployeeToProject @EmployeeId INT, @ProjectId INT
+AS
+BEGIN
+    DECLARE @EmployeeProjectCount INT;
+	SET @EmployeeProjectCount = (SELECT COUNT(*) FROM EmployeesProjects
+WHERE EmployeeID = @EmployeeId)
+
+   IF(@EmployeeProjectCount > 2)
+   BEGIN
+   RAISERROR('Employee has too many projects!', 16, 1);
+   RETURN
+   END
+
+   INSERT INTO EmployeesProjects ( EmployeeID, ProjectID )
+   VALUES (@EmployeeId, @ProjectId)
+END
+
+GO
+
+EXEC usp_AddEmployeeToProject 2, 6
+
+-- Exercise Withraw Money
+
+Use Bank
+
+GO
+
+CREATE OR ALTER PROC usp_WithdrawMoney @AccountId INT, @MoneyAmount DECIMAL(15, 2)
+AS 
+BEGIN
+    DECLARE @CurrentBalance DECIMAL(15, 2);
+	SET @CurrentBalance = (SELECT Balance FROM Accounts
+	                       WHERE AccountHolderId = @AccountId);
+
+        IF(@MoneyAmount < 0)
+		BEGIN;
+				   THROW 50000, 'Negative Amount Specified!', 1;
+				   RETURN
+		END
+
+		IF(@CurrentBalance - @MoneyAmount < 0)
+		BEGIN;
+		   THROW 50000, 'Insufficient Funds!', 2;
+		   RETURN
+		END
+
+		UPDATE Accounts
+		SET Balance -= @MoneyAmount
+		WHERE Id = @AccountId
+
+END
+
+GO
 
